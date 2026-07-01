@@ -175,7 +175,7 @@
     -webkit-user-select: none;
   }
   .check-row:hover { background: var(--surface2); color: #aaa; }
-  .check-row.on { color: #ddd; }
+  .check-row.on { color: #222; }
 
   .tick {
     width: 13px; height: 13px;
@@ -200,6 +200,51 @@
 
   .check-row[data-act="ms"] .tick { border-color: var(--ms); }
   .check-row[data-act="ms"].on .tick { background: var(--ms); border-color: var(--ms); }
+
+  /* Observação */
+  .obs-wrap {
+    margin-top: 5px;
+  }
+  .obs-toggle {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 3px;
+    border-radius: 4px;
+    transition: color 0.1s, background 0.1s;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .obs-toggle:hover { color: var(--accent); background: var(--surface2); }
+  .obs-toggle.has-note { color: var(--accent); font-weight: 600; }
+  .obs-area {
+    display: none;
+    width: 100%;
+    margin-top: 4px;
+    font-size: 0.62rem;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border-active);
+    border-radius: 5px;
+    padding: 4px 5px;
+    resize: none;
+    outline: none;
+    line-height: 1.4;
+    min-height: 44px;
+    transition: border-color 0.15s;
+  }
+  .obs-area:focus { border-color: var(--accent); }
+  .obs-area.open { display: block; }
+
+  @media print {
+    .obs-toggle { display: none; }
+    .obs-area { display: block !important; border: 1px solid #ccc; background: #fafafa; min-height: 20px; }
+    .obs-area:empty { display: none !important; }
+  }
 
   /* Backup bar */
   .backup-bar {
@@ -458,6 +503,12 @@ function render() {
             <div class="tick">${CHECKMARK}</div>
             <span>${a.label}</span>
           </div>`).join('')}
+      </div>
+      <div class="obs-wrap">
+        <div class="obs-toggle${entry.obs ? ' has-note' : ''}" data-key="${key}">
+          ✏️ ${entry.obs ? 'ver nota' : 'obs.'}
+        </div>
+        <textarea class="obs-area${entry.obs ? ' open' : ''}" data-key="${key}" placeholder="Anotação do dia..." rows="2">${entry.obs || ''}</textarea>
       </div>`;
 
     cal.appendChild(el);
@@ -467,6 +518,33 @@ function render() {
     row.addEventListener('click', function() {
       toggle(this.dataset.key, this.dataset.act);
     });
+  });
+
+  cal.querySelectorAll('.obs-toggle').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const ta = this.nextElementSibling;
+      ta.classList.toggle('open');
+      if (ta.classList.contains('open')) ta.focus();
+    });
+  });
+
+  cal.querySelectorAll('.obs-area').forEach(ta => {
+    ta.addEventListener('input', function() {
+      const k = this.dataset.key;
+      getEntry(k).obs = this.value;
+      save();
+      // update toggle label
+      const toggle = this.previousElementSibling;
+      if (this.value) {
+        toggle.classList.add('has-note');
+        toggle.textContent = '✏️ ver nota';
+      } else {
+        toggle.classList.remove('has-note');
+        toggle.textContent = '✏️ obs.';
+      }
+    });
+    // prevent clicks inside textarea from bubbling weirdly
+    ta.addEventListener('click', e => e.stopPropagation());
   });
 
   updateStats(m);
