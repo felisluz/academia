@@ -993,29 +993,23 @@ async function processarRefeicao() {
   const kcalJ = (refs||[]).reduce((s,r) => s+(r.kcal||0), 0);
   const protJ = (refs||[]).reduce((s,r) => s+(r.proteina_g||0), 0);
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPA_URL}/functions/v1/analisar-refeicao`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6', max_tokens: 1000,
-        messages: [{ role: 'user', content: `Você é um nutricionista. Analise a refeição e responda SOMENTE em JSON válido sem markdown.
-
-Refeição: "${texto}"
-Meta kcal/dia: ${mK} | Meta proteína: ${mP}g
-Já consumiu hoje: ${kcalJ} kcal e ${protJ}g proteína
-
-JSON exato:
-{"descricao":"resumo da refeição","kcal":número,"proteina_g":número decimal,"sugestao":"sugestão curta e prática do que comer nas próximas refeições para bater as metas"}` }]
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPA_KEY,
+      },
+      body: JSON.stringify({ texto, mK, mP, kcalJ, protJ }),
     });
-    const json = await res.json();
-    const parsed = JSON.parse((json.content?.[0]?.text||'{}').replace(/```json|```/g,'').trim());
+    const parsed = await res.json();
     await sb.from('refeicoes').insert({ dia_id: diaAtual.id, descricao: parsed.descricao||texto, kcal: parsed.kcal||0, proteina_g: parsed.proteina_g||0 });
     document.getElementById('ai-result').innerHTML = `<strong>✅ ${parsed.kcal} kcal · ${parsed.proteina_g}g proteína registrados!</strong><br><br><strong>💡 Sugestão para o resto do dia:</strong><br>${parsed.sugestao}`;
     document.getElementById('ai-result').classList.add('show');
     document.getElementById('ai-input').value = '';
     await carregarRefeicoes();
-  } catch(e) { showToast('⚠️ Erro na IA. Tente novamente.'); }
+  } catch(e) { console.error(e); showToast('⚠️ Erro na IA. Tente novamente.'); }
   btn.disabled = false; btn.textContent = 'Analisar';
 }
 
