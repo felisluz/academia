@@ -820,34 +820,38 @@ async function salvarPerfil() {
 
 // ===== LISTA DE DIAS =====
 async function carregarDias() {
+  const el = document.getElementById('lista-dias');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+
+  // Timeout de segurança — nunca fica travado
+  const timeout = setTimeout(() => {
+    if (el.innerHTML.includes('Carregando')) {
+      el.innerHTML = `<div class="empty"><div class="emoji">⚠️</div><p>Tempo esgotado ao carregar.<br><button onclick="carregarDias()" style="margin-top:12px;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">Tentar novamente</button></p></div>`;
+    }
+  }, 8000);
+
   try {
-    document.getElementById('lista-dias').innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
-    
-    const { data: dias, error: errDias } = await sb.from('dias').select('*').eq('user_id', userAtual.id).order('data', { ascending: false }).limit(60);
-    
-    if (errDias) throw errDias;
-    
-    if (!dias || dias.length === 0) {
-      document.getElementById('lista-dias').innerHTML = `<div class="empty"><div class="emoji">🏋️</div><p>Nenhum treino registrado ainda.<br>Clique em "Registrar treino de hoje" para começar!</p></div>`;
+    const resDias = await sb.from('dias').select('*').eq('user_id', userAtual.id).order('data', { ascending: false }).limit(60);
+    const dias = resDias.data || [];
+
+    if (!dias.length) {
+      clearTimeout(timeout);
+      el.innerHTML = `<div class="empty"><div class="emoji">🏋️</div><p>Nenhum treino registrado ainda.<br>Clique em "Registrar treino de hoje" para começar!</p></div>`;
       return;
     }
-    
+
     const ids = dias.map(d => d.id);
-    const [resAtivs, resRefs, resAguas] = await Promise.all([
-      sb.from('atividades').select('*').in('dia_id', ids).eq('feito', true).then(r => r).catch(() => ({ data: [] })),
-      sb.from('refeicoes').select('dia_id,kcal,proteina_g').in('dia_id', ids).then(r => r).catch(() => ({ data: [] })),
-      sb.from('agua').select('dia_id,quantidade_ml').in('dia_id', ids).then(r => r).catch(() => ({ data: [] })),
-    ]);
-    const ativs = resAtivs.data || [];
-    const refs  = resRefs.data  || [];
-    const aguas = resAguas.data || [];
+    const ativs = await sb.from('atividades').select('*').in('dia_id', ids).eq('feito', true).then(r => r.data || []).catch(() => []);
+    const refs  = await sb.from('refeicoes').select('dia_id,kcal,proteina_g').in('dia_id', ids).then(r => r.data || []).catch(() => []);
+    const aguas = await sb.from('agua').select('dia_id,quantidade_ml').in('dia_id', ids).then(r => r.data || []).catch(() => []);
   const mK = perfilData?.meta_kcal || 2000;
   const mP = perfilData?.meta_proteina_g || 120;
   const mA = perfilData ? perfilData.meta_agua_ml / 1000 : 2.5;
   const tipoMap = { aerobica:'aer', alongamento:'alo', musc_inferior:'mi', musc_superior:'ms' };
   const lblMap  = { aerobica:'Aeróbica', alongamento:'Alongamento', musc_inferior:'Musc. Inf.', musc_superior:'Musc. Sup.' };
 
-  document.getElementById('lista-dias').innerHTML = dias.map(d => {
+  clearTimeout(timeout);
+  el.innerHTML = dias.map(d => {
     const da = ativs.filter(a => a.dia_id === d.id);
     const dr = refs.filter(r => r.dia_id === d.id);
     const dw = aguas.filter(w => w.dia_id === d.id);
@@ -872,6 +876,7 @@ async function carregarDias() {
     </div>`;
   }).join('');
   } catch(e) {
+    clearTimeout(timeout);
     console.error('Erro ao carregar dias:', e);
     document.getElementById('lista-dias').innerHTML = `<div class="empty"><div class="emoji">⚠️</div><p>Erro ao carregar dados.<br><button onclick="carregarDias()" style="margin-top:12px;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">Tentar novamente</button></p></div>`;
   }
