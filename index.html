@@ -821,11 +821,14 @@ async function carregarDias() {
     return;
   }
   const ids = dias.map(d => d.id);
-  const [{ data: ativs }, { data: refs }, { data: aguas }] = await Promise.all([
+  const [resAtivs, resRefs, resAguas] = await Promise.all([
     sb.from('atividades').select('*').in('dia_id', ids).eq('feito', true),
     sb.from('refeicoes').select('dia_id,kcal,proteina_g').in('dia_id', ids),
     sb.from('agua').select('dia_id,quantidade_ml').in('dia_id', ids),
   ]);
+  const ativs = resAtivs.data || [];
+  const refs  = resRefs.data  || [];
+  const aguas = resAguas.data || [];
   const mK = perfilData?.meta_kcal || 2000;
   const mP = perfilData?.meta_proteina_g || 120;
   const mA = perfilData ? perfilData.meta_agua_ml / 1000 : 2.5;
@@ -833,9 +836,9 @@ async function carregarDias() {
   const lblMap  = { aerobica:'Aeróbica', alongamento:'Alongamento', musc_inferior:'Musc. Inf.', musc_superior:'Musc. Sup.' };
 
   document.getElementById('lista-dias').innerHTML = dias.map(d => {
-    const da = (ativs||[]).filter(a => a.dia_id === d.id);
-    const dr = (refs ||[]).filter(r => r.dia_id === d.id);
-    const dw = (aguas||[]).filter(w => w.dia_id === d.id);
+    const da = ativs.filter(a => a.dia_id === d.id);
+    const dr = refs.filter(r => r.dia_id === d.id);
+    const dw = aguas.filter(w => w.dia_id === d.id);
     const kcalT = dr.reduce((s,r) => s+(r.kcal||0), 0);
     const protT = dr.reduce((s,r) => s+(r.proteina_g||0), 0);
     const aguaT = dw.reduce((s,w) => s+(w.quantidade_ml||0), 0) / 1000;
