@@ -738,8 +738,11 @@ sb.auth.onAuthStateChange(async (event, session) => {
     document.getElementById('app').style.display = 'block';
     document.getElementById('user-chip').textContent = userAtual.email;
     document.getElementById('perfil-email').textContent = userAtual.email;
-    await carregarPerfil();
-    await carregarDias();
+    try { await carregarPerfil(); } catch(e) { console.error('Erro perfil:', e); }
+    try { await carregarDias(); } catch(e) { console.error('Erro dias:', e); }
+  } else if (event === 'SIGNED_OUT') {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('auth-wrap').style.display = 'flex';
   }
 });
 
@@ -815,20 +818,27 @@ async function salvarPerfil() {
 
 // ===== LISTA DE DIAS =====
 async function carregarDias() {
-  const { data: dias } = await sb.from('dias').select('*').eq('user_id', userAtual.id).order('data', { ascending: false }).limit(60);
-  if (!dias || dias.length === 0) {
-    document.getElementById('lista-dias').innerHTML = `<div class="empty"><div class="emoji">🏋️</div><p>Nenhum treino registrado ainda.<br>Clique em "Registrar treino de hoje" para começar!</p></div>`;
-    return;
-  }
-  const ids = dias.map(d => d.id);
-  const [resAtivs, resRefs, resAguas] = await Promise.all([
-    sb.from('atividades').select('*').in('dia_id', ids).eq('feito', true),
-    sb.from('refeicoes').select('dia_id,kcal,proteina_g').in('dia_id', ids),
-    sb.from('agua').select('dia_id,quantidade_ml').in('dia_id', ids),
-  ]);
-  const ativs = resAtivs.data || [];
-  const refs  = resRefs.data  || [];
-  const aguas = resAguas.data || [];
+  try {
+    document.getElementById('lista-dias').innerHTML = '<div class="loading"><div class="spinner"></div>Carregando...</div>';
+    
+    const { data: dias, error: errDias } = await sb.from('dias').select('*').eq('user_id', userAtual.id).order('data', { ascending: false }).limit(60);
+    
+    if (errDias) throw errDias;
+    
+    if (!dias || dias.length === 0) {
+      document.getElementById('lista-dias').innerHTML = `<div class="empty"><div class="emoji">🏋️</div><p>Nenhum treino registrado ainda.<br>Clique em "Registrar treino de hoje" para começar!</p></div>`;
+      return;
+    }
+    
+    const ids = dias.map(d => d.id);
+    const [resAtivs, resRefs, resAguas] = await Promise.all([
+      sb.from('atividades').select('*').in('dia_id', ids).eq('feito', true).then(r => r).catch(() => ({ data: [] })),
+      sb.from('refeicoes').select('dia_id,kcal,proteina_g').in('dia_id', ids).then(r => r).catch(() => ({ data: [] })),
+      sb.from('agua').select('dia_id,quantidade_ml').in('dia_id', ids).then(r => r).catch(() => ({ data: [] })),
+    ]);
+    const ativs = resAtivs.data || [];
+    const refs  = resRefs.data  || [];
+    const aguas = resAguas.data || [];
   const mK = perfilData?.meta_kcal || 2000;
   const mP = perfilData?.meta_proteina_g || 120;
   const mA = perfilData ? perfilData.meta_agua_ml / 1000 : 2.5;
@@ -859,6 +869,10 @@ async function carregarDias() {
       </div>
     </div>`;
   }).join('');
+  } catch(e) {
+    console.error('Erro ao carregar dias:', e);
+    document.getElementById('lista-dias').innerHTML = `<div class="empty"><div class="emoji">⚠️</div><p>Erro ao carregar dados.<br><button onclick="carregarDias()" style="margin-top:12px;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">Tentar novamente</button></p></div>`;
+  }
 }
 
 // ===== ABRIR DIA =====
