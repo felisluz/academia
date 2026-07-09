@@ -1184,8 +1184,23 @@ textarea.inp { min-height: 72px; resize: vertical; }
 .corpo-peso-destaque {
   background: linear-gradient(135deg, var(--accent-lt), #f0f4ff);
   border: 1.5px solid #c4b8ff; border-radius: var(--radius);
-  padding: 12px; margin-bottom: 14px;
+  padding: 12px; margin-bottom: 0;
 }
+.corpo-medidas-bloco {
+  background: var(--surface);
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 12px;
+}
+.corpo-bloco-titulo {
+  font-size: 0.72rem; font-weight: 900; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted); margin-bottom: 10px;
+}
+.corpo-hist-badge {
+  display: inline-block; font-size: 0.6rem; font-weight: 800;
+  padding: 2px 7px; border-radius: 10px; margin-bottom: 4px;
+}
+.corpo-hist-badge.peso { background: var(--accent-lt); color: var(--accent); }
+.corpo-hist-badge.medidas { background: var(--green-lt); color: var(--green); }
 .corpo-peso-destaque .corpo-field-label { color: var(--accent); font-size: 0.72rem; }
 .corpo-grafico-wrap {
   background: var(--surface); border: 1.5px solid var(--border);
@@ -1308,32 +1323,36 @@ textarea.inp { min-height: 72px; resize: vertical; }
 
     <!-- CORPO -->
     <div class="screen" id="screen-corpo">
-      <div class="screen-title">📏 Corpo</div>
+      <div class="screen-title">🧍 Corpo</div>
       <p style="font-size:0.78rem;color:var(--muted);margin:-12px 0 16px">Peso semanal e medidas mensais em cm</p>
 
-      <div class="section-card">
-        <div class="section-label" id="corpo-form-titulo">+ Novo registro</div>
-        <div class="inp-label">Data e hora do registro</div>
-        <input class="inp" id="corpo-registrado" type="datetime-local" style="margin-bottom:12px">
-
-        <div class="corpo-peso-destaque">
-          <div class="corpo-field">
-            <div class="corpo-field-label">
-              <span>Peso (kg)</span>
-              <button type="button" class="corpo-tip-btn" onclick="toggleDicaCorpo('peso_kg', this)" aria-label="Como medir">?</button>
-            </div>
-            <div class="corpo-tip-box" id="corpo-tip-peso_kg">Registre seu peso na balança, de preferência em jejum e sempre no mesmo horário. Ideal medir 1x por semana.</div>
-            <input class="inp" id="corpo-peso_kg" type="number" step="0.1" min="0" placeholder="Ex: 78.5">
+      <div class="section-card corpo-peso-destaque">
+        <div class="corpo-bloco-titulo" id="corpo-peso-titulo">⚖️ Peso semanal</div>
+        <div class="inp-label">Data e hora da pesagem</div>
+        <input class="inp" id="corpo-peso-registrado" type="datetime-local" style="margin-bottom:10px">
+        <div class="corpo-field">
+          <div class="corpo-field-label">
+            <span>Peso (kg)</span>
+            <button type="button" class="corpo-tip-btn" onclick="toggleDicaCorpo('peso_kg', this)" aria-label="Como medir">?</button>
           </div>
+          <div class="corpo-tip-box" id="corpo-tip-peso_kg">Registre seu peso na balança, de preferência em jejum e sempre no mesmo horário. Ideal medir 1x por semana.</div>
+          <input class="inp" id="corpo-peso_kg" type="number" step="0.1" min="0" placeholder="Ex: 78.5">
         </div>
+        <div class="add-form-actions" style="margin-top:10px">
+          <button class="btn-add" id="btn-corpo-peso" onclick="salvarPesoCorpo()">+ Salvar peso</button>
+          <button class="btn-cancel-ex" id="btn-corpo-cancelar-peso" style="display:none" onclick="cancelarEdicaoPesoCorpo()">Cancelar</button>
+        </div>
+      </div>
 
-        <div class="section-label" style="margin-top:4px">📐 Circunferências (cm)</div>
-        <p style="font-size:0.65rem;color:var(--muted);margin:4px 0 10px;line-height:1.4">Medidas corporais: registre 1x por mês. Preencha só o que mediu hoje.</p>
+      <div class="section-card corpo-medidas-bloco">
+        <div class="corpo-bloco-titulo" id="corpo-medidas-titulo">📐 Medidas mensais (cm)</div>
+        <div class="inp-label">Data e hora das medidas</div>
+        <input class="inp" id="corpo-medidas-registrado" type="datetime-local" style="margin-bottom:10px">
+        <p style="font-size:0.65rem;color:var(--muted);margin:0 0 10px;line-height:1.4">Registre 1x por mês. Preencha só o que mediu hoje.</p>
         <div id="corpo-campos-medidas"></div>
-
         <div class="add-form-actions" style="margin-top:12px">
-          <button class="btn-add" id="btn-corpo-salvar" onclick="salvarMedidaCorporal()">+ Salvar registro</button>
-          <button class="btn-cancel-ex" id="btn-corpo-cancelar" style="display:none" onclick="cancelarEdicaoCorpo()">Cancelar</button>
+          <button class="btn-add" id="btn-corpo-medidas" onclick="salvarMedidasCorpo()">+ Salvar medidas</button>
+          <button class="btn-cancel-ex" id="btn-corpo-cancelar-medidas" style="display:none" onclick="cancelarEdicaoMedidasCorpo()">Cancelar</button>
         </div>
       </div>
 
@@ -1724,7 +1743,7 @@ textarea.inp { min-height: 72px; resize: vertical; }
       <span class="icon">🏠</span>Início
     </button>
     <button class="nav-item" id="nav-corpo" onclick="navTo('corpo')">
-      <span class="icon">📏</span>Corpo
+      <span class="icon">🧍</span>Corpo
     </button>
     <button class="nav-item" id="nav-dashboard" onclick="navTo('dashboard')">
       <span class="icon">📊</span>Dashboard
@@ -1828,6 +1847,88 @@ let diaModoRegistro = false;
 let authMode  = 'login';
 let appIniciado = false;
 
+// ===== INATIVIDADE (logout após 30 min sem interação) =====
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const IDLE_STORAGE_KEY = 'metriafit-last-activity';
+let idleTimer = null;
+let lastActivityAt = Date.now();
+let ultimoResetIdle = 0;
+let idleMonitorConfigurado = false;
+
+function marcarAtividade() {
+  if (!userAtual) return;
+  const now = Date.now();
+  if (now - ultimoResetIdle < 1000) return;
+  ultimoResetIdle = now;
+  lastActivityAt = now;
+  try { sessionStorage.setItem(IDLE_STORAGE_KEY, String(now)); } catch {}
+  reiniciarTimerInatividade();
+}
+
+function reiniciarTimerInatividade() {
+  pararTimerInatividade();
+  if (!userAtual) return;
+  const restante = IDLE_TIMEOUT_MS - (Date.now() - lastActivityAt);
+  idleTimer = setTimeout(executarLogoutPorInatividade, Math.max(0, restante));
+}
+
+function pararTimerInatividade() {
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+}
+
+async function executarLogoutPorInatividade() {
+  if (!userAtual) return;
+  showToast('Sessão encerrada por inatividade (30 min).');
+  await logout();
+}
+
+function verificarInatividadeAoVoltar() {
+  if (!userAtual) return;
+  if (Date.now() - lastActivityAt >= IDLE_TIMEOUT_MS) {
+    executarLogoutPorInatividade();
+  }
+}
+
+function configurarMonitorInatividade() {
+  if (idleMonitorConfigurado) return;
+  idleMonitorConfigurado = true;
+  for (const ev of ['mousedown', 'keydown', 'touchstart', 'scroll', 'click']) {
+    document.addEventListener(ev, marcarAtividade, { passive: true, capture: true });
+  }
+  document.addEventListener('visibilitychange', verificarInatividadeAoVoltar);
+  window.addEventListener('focus', verificarInatividadeAoVoltar);
+}
+
+function iniciarMonitorInatividade() {
+  configurarMonitorInatividade();
+  pararTimerInatividade();
+  if (!userAtual) return;
+
+  const now = Date.now();
+  let stored = null;
+  try { stored = sessionStorage.getItem(IDLE_STORAGE_KEY); } catch {}
+  const t = stored != null ? Number(stored) : NaN;
+  if (Number.isFinite(t)) {
+    if (now - t >= IDLE_TIMEOUT_MS) {
+      executarLogoutPorInatividade();
+      return;
+    }
+    lastActivityAt = t;
+  } else {
+    lastActivityAt = now;
+    try { sessionStorage.setItem(IDLE_STORAGE_KEY, String(now)); } catch {}
+  }
+  reiniciarTimerInatividade();
+}
+
+function pararMonitorInatividade() {
+  pararTimerInatividade();
+  try { sessionStorage.removeItem(IDLE_STORAGE_KEY); } catch {}
+}
+
 // ===== AUTH =====
 function setAuthTab(mode) {
   authMode = mode;
@@ -1881,6 +1982,7 @@ function showAuthError(msg) {
 }
 
 async function logout() {
+  pararMonitorInatividade();
   await sb.auth.signOut();
   userAtual = null; perfilData = null; appIniciado = false;
   document.getElementById('app').style.display = 'none';
@@ -1907,12 +2009,14 @@ async function iniciarApp(user) {
   atualizarAlertasAposRegistro();
   carregarSugestoesAlimentosDoBanco().catch(() => {});
   atualizarCoachDia().catch(() => {});
+  iniciarMonitorInatividade();
 }
 
 sb.auth.onAuthStateChange((event, session) => {
   if (session?.user) {
     setTimeout(() => iniciarApp(session.user), 0);
   } else if (event === 'SIGNED_OUT') {
+    pararMonitorInatividade();
     userAtual = null; appIniciado = false;
     document.getElementById('app').style.display = 'none';
     document.getElementById('auth-wrap').style.display = 'flex';
@@ -2871,7 +2975,7 @@ function htmlCardLembrete(item) {
     <div style="flex:1">
       <div class="alerta-title">${item.title}</div>
       <div class="alerta-desc">${item.desc}</div>
-      <button type="button" class="btn-lembrete-corpo" onclick="navTo('corpo')">📏 Ir para Corpo</button>
+      <button type="button" class="btn-lembrete-corpo" onclick="navTo('corpo')">🧍 Ir para Corpo</button>
     </div>
   </div>`;
 }
@@ -4600,6 +4704,10 @@ function canonSugKey(txt) {
 }
 
 const MANUAL_STOP_TOKENS = new Set(['sem', 'tipo', 'pronto', 'cru', 'crua']);
+const MANUAL_PREP_TOKENS = new Set([
+  'cozido', 'cozida', 'cru', 'crua', 'refogado', 'refogada', 'assado', 'assada',
+  'grelhado', 'grelhada', 'frito', 'frita', 'bolhado', 'bolhada', 'desidratado', 'desidratada',
+]);
 
 function tokensAlimentoCanon(txt) {
   return canonSugKey(txt)
@@ -4610,10 +4718,9 @@ function tokensAlimentoCanon(txt) {
 function registrarManualGlobal(calc, descLinha) {
   const cloned = cloneItemManual(calc);
   if (!cloned) return;
-  for (const src of [calc?.nome, descLinha]) {
-    const k = canonSugKey(src || '');
-    if (k) manualOverridesGlobais.set(k, cloned);
-  }
+  // Usa só o texto que o usuário digitou — evita propagar manual de "sopa de feijão preto" para "feijão preto".
+  const k = canonSugKey(descLinha || '');
+  if (k) manualOverridesGlobais.set(k, cloned);
 }
 
 function manualMatchScore(ck, mapKey) {
@@ -4622,14 +4729,23 @@ function manualMatchScore(ck, mapKey) {
   const a = tokensAlimentoCanon(ck);
   const b = tokensAlimentoCanon(mapKey);
   if (!a.length || !b.length) return 0;
+  const setA = new Set(a);
   const setB = new Set(b);
-  let inter = 0;
-  for (const t of a) if (setB.has(t)) inter++;
-  if (inter < 2) return 0;
-  const minSz = Math.min(a.length, b.length);
-  const maxSz = Math.max(a.length, b.length);
-  if (inter === minSz) return 0.85 + (inter / maxSz) * 0.15;
-  return inter / maxSz;
+
+  // Todos os tokens do ajuste salvo devem aparecer no item buscado.
+  for (const t of b) {
+    if (!setA.has(t)) return 0;
+  }
+  // Termo único: só vale match exato (já tratado acima).
+  if (b.length < 2) return 0;
+
+  // Tokens extras no item buscado só podem ser modo de preparo (ex.: "feijão preto cozido").
+  for (const t of a) {
+    if (!setB.has(t) && !MANUAL_PREP_TOKENS.has(t)) return 0;
+  }
+
+  if (a.length === b.length) return 0.95;
+  return 0.85 + (b.length / a.length) * 0.1;
 }
 
 function abrirSugestoesAlimentos() {
@@ -4897,6 +5013,7 @@ function htmlTabelaNutricao(itens) {
       <td class="col-num">${Math.round(Number(i.gramas) || 0)}g</td>
       <td class="col-num"><strong>${Math.round(m.kcal)}</strong></td>
       <td class="col-num">${Math.round(m.prot * 10) / 10}g</td>
+      <td class="col-num">${Math.round(m.fibra * 10) / 10}g</td>
       <td class="col-taco">
         <div class="col-taco-inner">
           <span class="col-taco-txt" title="${escHtml(taco)}">${escHtml(taco)}</span>
@@ -4912,6 +5029,7 @@ function htmlTabelaNutricao(itens) {
         <th class="col-num">Peso</th>
         <th class="col-num">Kcal</th>
         <th class="col-num">Prot</th>
+        <th class="col-num">Fibra</th>
         <th class="col-taco">TACO</th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -5254,11 +5372,27 @@ function buscarManualGlobal(txtOuNome) {
   return best;
 }
 
-function aplicarLocksNosItens(itensNovos, itensSeeds = []) {
+function aplicarLocksNosItens(itensNovos, itensSeeds = [], descLinhas = []) {
   const merged = mergeItensComLock(itensSeeds, itensNovos);
-  return merged.map((n) => {
-    if (n?.manual_lock) return n;
-    const global = buscarManualGlobal(n.nome || '');
+  return merged.map((n, idx) => {
+    const linha = String(descLinhas[idx] || '').trim();
+    const lookup = linha || n.nome || '';
+    const global = buscarManualGlobal(lookup);
+
+    if (n?.manual_lock) {
+      if (!global) {
+        const { manual_lock, kcal_override, proteina_override_g, fibra_override_g, ...rest } = n;
+        return rest;
+      }
+      return {
+        ...n,
+        manual_lock: true,
+        kcal_override: global.kcal_override ?? global.kcal,
+        proteina_override_g: global.proteina_override_g ?? global.proteina_g,
+        fibra_override_g: global.fibra_override_g ?? global.fibra_g,
+      };
+    }
+
     if (!global) return n;
     return {
       ...n,
@@ -5457,7 +5591,7 @@ async function salvarEdicaoRefeicao() {
         : await analisarTextoRefeicao(desc, refeicaoEditandoId);
       const itensNovos = res.itens?.length ? res.itens : null;
       // Preserva itens travados do detalhe antigo ao reanalisar.
-      itens = itensNovos ? aplicarLocksNosItens(itensNovos, itens || []) : null;
+      itens = itensNovos ? aplicarLocksNosItens(itensNovos, itens || [], partes) : null;
       if (itens?.length) {
         const t = totaisDeItens(itens);
         kcal = Math.round(t.kcal);
@@ -5583,7 +5717,7 @@ async function processarRefeicao() {
     const res = await analisarTextoRefeicao(texto, null, null, itensLinhas);
     let itens = res.itens || [];
     if (itens.length) {
-      itens = aplicarLocksNosItens(itens, itensManuaisSelecionados);
+      itens = aplicarLocksNosItens(itens, itensManuaisSelecionados, itensLinhas);
     }
     let kcal = res.kcal;
     let prot = res.prot;
@@ -5683,8 +5817,8 @@ async function recalcularRefeicoesDia() {
         : await analisarTextoRefeicao(desc, r.id);
       const itensNovos = res.itens?.length ? res.itens : null;
       const itensFinal = (itensAntigos?.length && itensNovos?.length)
-        ? aplicarLocksNosItens(itensNovos, itensAntigos)
-        : (itensNovos ? aplicarLocksNosItens(itensNovos, []) : itensAntigos || null);
+        ? aplicarLocksNosItens(itensNovos, itensAntigos, partes)
+        : (itensNovos ? aplicarLocksNosItens(itensNovos, [], partes) : itensAntigos || null);
 
       let kcal = res.kcal, prot = res.prot, fibra = res.fibra;
       if (itensFinal?.length) {
@@ -6095,10 +6229,24 @@ const CAMPOS_CORPO_GRAFICO = [
 ];
 
 let medidasCorporaisCache = [];
-let corpoEditandoId = null;
+let corpoEditandoPesoId = null;
+let corpoEditandoMedidasId = null;
 let corpoGraficoCampo = 'peso_kg';
 let corpoChartInstance = null;
 let corpoFormMontado = false;
+
+function registroTemPeso(m) {
+  return m?.peso_kg != null;
+}
+
+function tipoRegistroCorpo(m) {
+  const temP = registroTemPeso(m);
+  const temM = registroTemMedidasCorporais(m);
+  if (temP && temM) return 'misto';
+  if (temP) return 'peso';
+  if (temM) return 'medidas';
+  return 'vazio';
+}
 
 function montarFormularioCorpo() {
   if (corpoFormMontado) return;
@@ -6137,39 +6285,68 @@ function toggleDicaCorpo(campoId, btn) {
   btn.classList.toggle('ativo', abrir);
 }
 
-function limparFormCorpo() {
+function limparFormPesoCorpo() {
   document.getElementById('corpo-peso_kg').value = '';
+  document.getElementById('corpo-peso-registrado').value = agoraDatetimeLocal();
+  document.getElementById('corpo-tip-peso_kg')?.classList.remove('show');
+  document.querySelectorAll('.corpo-tip-btn').forEach(b => {
+    if (b.closest('.corpo-peso-destaque')) b.classList.remove('ativo');
+  });
+}
+
+function limparFormMedidasCorpo() {
   CAMPOS_CORPO_MEDIDAS.forEach(c => {
     const el = document.getElementById('corpo-' + c.id);
     if (el) el.value = '';
   });
-  document.getElementById('corpo-registrado').value = agoraDatetimeLocal();
-  document.querySelectorAll('.corpo-tip-box').forEach(el => el.classList.remove('show'));
-  document.querySelectorAll('.corpo-tip-btn').forEach(b => b.classList.remove('ativo'));
+  document.getElementById('corpo-medidas-registrado').value = agoraDatetimeLocal();
+  document.querySelectorAll('.corpo-tip-box').forEach(el => {
+    if (el.id !== 'corpo-tip-peso_kg') el.classList.remove('show');
+  });
+  document.querySelectorAll('.corpo-medidas-bloco .corpo-tip-btn').forEach(b => b.classList.remove('ativo'));
 }
 
-function cancelarEdicaoCorpo() {
-  corpoEditandoId = null;
-  limparFormCorpo();
-  document.getElementById('corpo-form-titulo').textContent = '+ Novo registro';
-  document.getElementById('btn-corpo-salvar').textContent = '+ Salvar registro';
-  document.getElementById('btn-corpo-cancelar').style.display = 'none';
+function cancelarEdicaoPesoCorpo() {
+  corpoEditandoPesoId = null;
+  limparFormPesoCorpo();
+  document.getElementById('corpo-peso-titulo').textContent = '⚖️ Peso semanal';
+  document.getElementById('btn-corpo-peso').textContent = '+ Salvar peso';
+  document.getElementById('btn-corpo-cancelar-peso').style.display = 'none';
 }
 
-function editarMedidaCorporal(id) {
+function cancelarEdicaoMedidasCorpo() {
+  corpoEditandoMedidasId = null;
+  limparFormMedidasCorpo();
+  document.getElementById('corpo-medidas-titulo').textContent = '📐 Medidas mensais (cm)';
+  document.getElementById('btn-corpo-medidas').textContent = '+ Salvar medidas';
+  document.getElementById('btn-corpo-cancelar-medidas').style.display = 'none';
+}
+
+function editarPesoCorporal(id) {
   const m = medidasCorporaisCache.find(x => x.id === id);
-  if (!m) return;
-  corpoEditandoId = id;
+  if (!m || !registroTemPeso(m)) return;
+  corpoEditandoPesoId = id;
   document.getElementById('corpo-peso_kg').value = m.peso_kg ?? '';
+  document.getElementById('corpo-peso-registrado').value = isoToDatetimeLocal(m.registrado_em || m.created_at);
+  document.getElementById('corpo-peso-titulo').textContent = '✏️ Editar peso';
+  document.getElementById('btn-corpo-peso').textContent = '✓ Salvar alteração';
+  document.getElementById('btn-corpo-cancelar-peso').style.display = '';
+  document.getElementById('corpo-peso-registrado').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function editarMedidasCorporal(id) {
+  const m = medidasCorporaisCache.find(x => x.id === id);
+  if (!m || !registroTemMedidasCorporais(m)) return;
+  corpoEditandoMedidasId = id;
   CAMPOS_CORPO_MEDIDAS.forEach(c => {
     const el = document.getElementById('corpo-' + c.id);
     if (el) el.value = m[c.id] ?? '';
   });
-  document.getElementById('corpo-registrado').value = isoToDatetimeLocal(m.registrado_em || m.created_at);
-  document.getElementById('corpo-form-titulo').textContent = '✏️ Editar registro';
-  document.getElementById('btn-corpo-salvar').textContent = '✓ Salvar alteração';
-  document.getElementById('btn-corpo-cancelar').style.display = '';
-  document.getElementById('corpo-registrado').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('corpo-medidas-registrado').value = isoToDatetimeLocal(m.registrado_em || m.created_at);
+  document.getElementById('corpo-medidas-titulo').textContent = '✏️ Editar medidas';
+  document.getElementById('btn-corpo-medidas').textContent = '✓ Salvar alteração';
+  document.getElementById('btn-corpo-cancelar-medidas').style.display = '';
+  document.getElementById('corpo-medidas-registrado').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function fmtDataHoraCorpo(iso) {
@@ -6182,11 +6359,32 @@ function fmtDataHoraCorpo(iso) {
 
 function resumoMedidaCorporal(m) {
   const partes = [];
-  if (m.peso_kg != null) partes.push(`⚖️ ${m.peso_kg} kg`);
+  if (registroTemPeso(m)) partes.push(`⚖️ ${m.peso_kg} kg`);
   CAMPOS_CORPO_MEDIDAS.forEach(c => {
     if (m[c.id] != null) partes.push(`${c.label.split(' ')[0]}: ${m[c.id]} cm`);
   });
   return partes.join(' · ') || 'Sem valores';
+}
+
+function badgeRegistroCorpo(m) {
+  const tipo = tipoRegistroCorpo(m);
+  if (tipo === 'peso') return '<span class="corpo-hist-badge peso">⚖️ Peso</span>';
+  if (tipo === 'medidas') return '<span class="corpo-hist-badge medidas">📐 Medidas</span>';
+  if (tipo === 'misto') return '<span class="corpo-hist-badge peso">⚖️ Peso</span> <span class="corpo-hist-badge medidas">📐 Medidas</span>';
+  return '';
+}
+
+function botoesEditarCorpo(m) {
+  const tipo = tipoRegistroCorpo(m);
+  let html = '';
+  if (tipo === 'peso' || tipo === 'misto') {
+    html += `<button class="edit-btn" onclick="editarPesoCorporal('${m.id}')" title="Editar peso">✏️</button>`;
+  }
+  if (tipo === 'medidas' || tipo === 'misto') {
+    html += `<button class="edit-btn" onclick="editarMedidasCorporal('${m.id}')" title="Editar medidas">📐</button>`;
+  }
+  html += `<button class="del-btn" onclick="delMedidaCorporal('${m.id}')" title="Excluir">🗑</button>`;
+  return html;
 }
 
 function renderHistoricoCorpo() {
@@ -6199,12 +6397,12 @@ function renderHistoricoCorpo() {
   el.innerHTML = medidasCorporaisCache.map(m => `
     <div class="corpo-hist-item">
       <div class="corpo-hist-info">
+        ${badgeRegistroCorpo(m)}
         <div class="corpo-hist-data">🕐 ${fmtDataHoraCorpo(m.registrado_em || m.created_at)}</div>
         <div class="corpo-hist-detal">${resumoMedidaCorporal(m)}</div>
       </div>
       <div class="corpo-hist-actions">
-        <button class="edit-btn" onclick="editarMedidaCorporal('${m.id}')" title="Editar">✏️</button>
-        <button class="del-btn" onclick="delMedidaCorporal('${m.id}')" title="Excluir">🗑</button>
+        ${botoesEditarCorpo(m)}
       </div>
     </div>`).join('');
 }
@@ -6287,8 +6485,11 @@ function renderGraficoCorpo() {
 async function carregarCorpo() {
   if (!userAtual) return;
   montarFormularioCorpo();
-  if (!corpoEditandoId) {
-    document.getElementById('corpo-registrado').value = agoraDatetimeLocal();
+  if (!corpoEditandoPesoId) {
+    document.getElementById('corpo-peso-registrado').value = agoraDatetimeLocal();
+  }
+  if (!corpoEditandoMedidasId) {
+    document.getElementById('corpo-medidas-registrado').value = agoraDatetimeLocal();
   }
 
   const el = document.getElementById('corpo-historico');
@@ -6316,39 +6517,72 @@ async function carregarCorpo() {
   }
 }
 
-async function salvarMedidaCorporal() {
+async function salvarPesoCorpo() {
+  const peso = parseFloat(document.getElementById('corpo-peso_kg').value);
+  if (!Number.isFinite(peso) || peso <= 0) {
+    showToast('⚠️ Informe o peso em kg');
+    return;
+  }
   const payload = {
-    peso_kg: parseFloat(document.getElementById('corpo-peso_kg').value) || null,
-    registrado_em: datetimeLocalToIso(document.getElementById('corpo-registrado').value) || new Date().toISOString(),
+    peso_kg: peso,
+    registrado_em: datetimeLocalToIso(document.getElementById('corpo-peso-registrado').value) || new Date().toISOString(),
+  };
+  const btn = document.getElementById('btn-corpo-peso');
+  btn.disabled = true;
+  try {
+    let error;
+    if (corpoEditandoPesoId) {
+      ({ error } = await sb.from('medidas_corporais').update(payload).eq('id', corpoEditandoPesoId));
+    } else {
+      ({ error } = await sb.from('medidas_corporais').insert({ ...payload, user_id: userAtual.id }));
+    }
+    if (error) throw error;
+    const eraEdicao = !!corpoEditandoPesoId;
+    cancelarEdicaoPesoCorpo();
+    await carregarCorpo();
+    atualizarAlertasAposRegistro();
+    showToast(eraEdicao ? '✅ Peso atualizado!' : '✅ Peso salvo!');
+  } catch (e) {
+    console.error('Erro salvar peso:', e);
+    const msg = e.message || '';
+    if (msg.includes('medidas_corporais') || e.code === '42P01' || e.code === 'PGRST204') {
+      showToast('⚠️ Rode metriafit_corpo.sql no Supabase (SQL Editor)');
+    } else {
+      showToast('⚠️ Erro ao salvar peso');
+    }
+  }
+  btn.disabled = false;
+}
+
+async function salvarMedidasCorpo() {
+  const payload = {
+    registrado_em: datetimeLocalToIso(document.getElementById('corpo-medidas-registrado').value) || new Date().toISOString(),
   };
   CAMPOS_CORPO_MEDIDAS.forEach(c => {
     const v = parseFloat(document.getElementById('corpo-' + c.id).value);
     payload[c.id] = Number.isFinite(v) ? v : null;
   });
-
-  const temValor = payload.peso_kg != null || CAMPOS_CORPO_MEDIDAS.some(c => payload[c.id] != null);
-  if (!temValor) {
-    showToast('⚠️ Informe o peso ou pelo menos uma medida');
+  if (!CAMPOS_CORPO_MEDIDAS.some(c => payload[c.id] != null)) {
+    showToast('⚠️ Preencha pelo menos uma medida');
     return;
   }
-
-  const btn = document.getElementById('btn-corpo-salvar');
+  const btn = document.getElementById('btn-corpo-medidas');
   btn.disabled = true;
   try {
     let error;
-    if (corpoEditandoId) {
-      ({ error } = await sb.from('medidas_corporais').update(payload).eq('id', corpoEditandoId));
+    if (corpoEditandoMedidasId) {
+      ({ error } = await sb.from('medidas_corporais').update(payload).eq('id', corpoEditandoMedidasId));
     } else {
       ({ error } = await sb.from('medidas_corporais').insert({ ...payload, user_id: userAtual.id }));
     }
     if (error) throw error;
-    const eraEdicao = !!corpoEditandoId;
-    cancelarEdicaoCorpo();
+    const eraEdicao = !!corpoEditandoMedidasId;
+    cancelarEdicaoMedidasCorpo();
     await carregarCorpo();
     atualizarAlertasAposRegistro();
-    showToast(eraEdicao ? '✅ Registro atualizado!' : '✅ Medidas salvas!');
+    showToast(eraEdicao ? '✅ Medidas atualizadas!' : '✅ Medidas salvas!');
   } catch (e) {
-    console.error('Erro salvar corpo:', e);
+    console.error('Erro salvar medidas:', e);
     const msg = e.message || '';
     if (msg.includes('medidas_corporais') || e.code === '42P01' || e.code === 'PGRST204') {
       showToast('⚠️ Rode metriafit_corpo.sql no Supabase (SQL Editor)');
@@ -6360,7 +6594,8 @@ async function salvarMedidaCorporal() {
 }
 
 async function delMedidaCorporal(id) {
-  if (corpoEditandoId === id) cancelarEdicaoCorpo();
+  if (corpoEditandoPesoId === id) cancelarEdicaoPesoCorpo();
+  if (corpoEditandoMedidasId === id) cancelarEdicaoMedidasCorpo();
   await sb.from('medidas_corporais').delete().eq('id', id);
   await carregarCorpo();
   atualizarAlertasAposRegistro();
