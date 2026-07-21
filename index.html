@@ -1429,7 +1429,7 @@ textarea.inp { min-height: 72px; resize: vertical; }
     <!-- HOME -->
     <div class="screen active" id="screen-home">
       <div class="home-brand-wrap">
-        <img src="logo-home.png" alt="" class="app-logo app-logo-home" aria-hidden="true">
+        <img src="logo.png" alt="" class="app-logo app-logo-home" aria-hidden="true">
         <div class="home-brand">Metria<span>Fit</span></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">
@@ -5501,15 +5501,19 @@ function renderSugestaoDiaBox(data) {
   if (!box) return;
   const dicas = Array.isArray(data?.dicas) ? data.dicas.filter(Boolean) : [];
   const resumo = String(data?.resumo || '').trim();
+  const mensagem = String(data?.mensagem || '').trim();
   let opcoes = Array.isArray(data?.opcoes) ? data.opcoes : [];
-  if (!opcoes.length && data?.sugestao_jantar) {
+  if (!opcoes.length && data?.sugestao_jantar && !data?.dia_fechado) {
     opcoes = [{ titulo: 'Jantar', prato: data.sugestao_jantar, por_que: '' }];
   }
-  if (!resumo && !opcoes.length && !dicas.length) {
+  if (!resumo && !mensagem && !opcoes.length && !dicas.length) {
     box.style.display = 'none';
     box.innerHTML = '';
     return;
   }
+  const blocoMsg = mensagem
+    ? `<div class="sug-mensagem${data?.dia_fechado ? ' sug-fechado' : ''}">${escHtml(mensagem)}</div>`
+    : '';
   const blocoOpcoes = opcoes.length
     ? `<div class="sug-opcoes">${opcoes.map((o, i) => {
         const titulo = escHtml(o.titulo || `Opção ${i + 1}`);
@@ -5524,6 +5528,7 @@ function renderSugestaoDiaBox(data) {
   box.innerHTML = `
     <div class="sug-titulo">✨ Sugestão do dia</div>
     ${resumo ? `<div class="sug-resumo">${escHtml(resumo)}</div>` : ''}
+    ${blocoMsg}
     ${blocoOpcoes}
     ${lista}`;
   box.style.display = 'block';
@@ -5534,6 +5539,30 @@ function sugestaoDiaLocal(tot, mK, mP, mF, refs) {
   const faltaProt = Math.max(0, Math.round((mP - tot.prot) * 10) / 10);
   const faltaFibra = Math.max(0, Math.round((mF - tot.fibra) * 10) / 10);
   const excedeuKcal = Math.max(0, Math.round(tot.kcal - mK));
+  const excedeuProt = Math.max(0, Math.round((tot.prot - mP) * 10) / 10);
+  const excedeuFibra = Math.max(0, Math.round((tot.fibra - mF) * 10) / 10);
+  const resumoBase = `Hoje: ${Math.round(tot.kcal)}/${mK} kcal · ${Math.round(tot.prot)}/${mP}g prot · ${Math.round(tot.fibra * 10) / 10}/${mF}g fibra.`;
+
+  // Já bateu proteína e calorias → não sugerir mais comida
+  const diaFechado = tot.prot >= mP && tot.kcal >= mK;
+  if (diaFechado) {
+    const dicas = [];
+    if (excedeuKcal > 0) dicas.push(`Calorias um pouco acima (+${excedeuKcal}). Amanhã pode aliviar um pouco.`);
+    else dicas.push('Calorias dentro da meta — ótimo equilíbrio.');
+    if (excedeuProt > 0) dicas.push(`Proteína ok (+${excedeuProt}g).`);
+    if (tot.fibra >= mF) dicas.push(`Fibra ok${excedeuFibra > 0 ? ` (+${excedeuFibra}g)` : ''}.`);
+    else if (faltaFibra > 0) dicas.push(`Fibra ainda um pouco baixa (−${faltaFibra}g) — amanhã inclua mais verdura.`);
+    dicas.push('Se sentir fome, prefira só chá, café sem açúcar ou água.');
+    return {
+      resumo: resumoBase,
+      mensagem: 'Por hoje é só! Você já bateu suas metas — não precisa comer mais.',
+      dia_fechado: true,
+      opcoes: [],
+      dicas: dicas.slice(0, 4),
+      sugestao_jantar: '',
+    };
+  }
+
   const textoDia = (refs || []).map(r => r.descricao || '').join(' ').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const temVerdura = /(alface|agriao|rucula|tomate|salada|brocolis|couve|espinafre|cenoura|pepino|repolho)/.test(textoDia);
@@ -5550,11 +5579,12 @@ function sugestaoDiaLocal(tot, mK, mP, mF, refs) {
 
   let opcoes;
   if (excedeuKcal > 0) {
+    // Passou da kcal mas ainda falta proteína → só opções leves
     opcoes = [
-      { titulo: 'Omelete leve', prato: 'Omelete de 3 ovos com espinafre e tomate, sem pão.', por_que: 'Proteína sem estourar mais kcal.' },
-      { titulo: 'Peixe + salada', prato: 'Filé de tilápia (~150g) grelhado + salada grande de alface, agrião e pepino.', por_que: 'Proteína magra e fibra.' },
+      { titulo: 'Omelete leve', prato: 'Omelete de 2 a 3 ovos com espinafre e tomate, sem pão.', por_que: 'Proteína sem estourar mais kcal.' },
+      { titulo: 'Peixe + salada', prato: 'Filé de tilápia (~120g) grelhado + salada grande de alface, agrião e pepino.', por_que: 'Proteína magra e fibra.' },
       { titulo: 'Atum na lata', prato: '1 lata de atum em água (~140g) + folhas verdes.', por_que: 'Rápido e baixo em kcal.' },
-      { titulo: 'Whey + verdura', prato: '1 scoop de whey + salada completa; sem arroz/farinha.', por_que: 'Fecha proteína sem carb extra.' },
+      { titulo: 'Whey simples', prato: '1 scoop de whey com água; sem arroz/farinha.', por_que: 'Fecha proteína sem carb extra.' },
     ];
   } else {
     opcoes = [
@@ -5576,7 +5606,9 @@ function sugestaoDiaLocal(tot, mK, mP, mF, refs) {
   }
   opcoes = opcoes.slice(0, 4);
   return {
-    resumo: `Hoje: ${Math.round(tot.kcal)}/${mK} kcal · ${Math.round(tot.prot)}/${mP}g prot · ${Math.round(tot.fibra * 10) / 10}/${mF}g fibra. Escolha 1 opção de jantar.`,
+    resumo: `${resumoBase} Escolha 1 opção de jantar.`,
+    mensagem: '',
+    dia_fechado: false,
     opcoes,
     dicas: dicas.slice(0, 3),
     sugestao_jantar: opcoes[0]?.prato || '',
@@ -5584,6 +5616,7 @@ function sugestaoDiaLocal(tot, mK, mP, mF, refs) {
 }
 
 function sugestaoDiaEhUtil(data) {
+  if (data?.dia_fechado) return true;
   const opcoes = Array.isArray(data?.opcoes) ? data.opcoes.filter(o => String(o?.prato || '').trim().length > 8) : [];
   if (opcoes.length >= 2) return true;
   const j = String(data?.sugestao_jantar || '');
@@ -5605,6 +5638,15 @@ async function gerarSugestaoDia() {
     }
     const tot = somaMacrosRefeicoes(refs);
     const local = sugestaoDiaLocal(tot, mK, mP, mF, refs);
+
+    // Metas já batidas: não chama IA nem sugere comida
+    if (local.dia_fechado) {
+      renderSugestaoDiaBox(local);
+      showToast('✅ Metas do dia já batidas!');
+      box?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+
     const refeicoes = refs.map(r => {
       const m = macrosRefeicao(r);
       const tipo = TIPOS_REF.find(t => t.id === (r.tipo || 'cafe_manha'))?.nome || r.tipo || 'Refeição';
@@ -5635,10 +5677,9 @@ async function gerarSugestaoDia() {
         faltaFibra,
         excedeuKcal,
       });
-      if (sugestaoDiaEhUtil(ia)) {
+      if (ia?.dia_fechado || sugestaoDiaEhUtil(ia)) {
         data = ia;
-        if (!Array.isArray(data.opcoes) || data.opcoes.length < 2) {
-          // edge antiga: só 1 prato — completa com opções locais diferentes
+        if (!data.dia_fechado && (!Array.isArray(data.opcoes) || data.opcoes.length < 2)) {
           const base = String(data.sugestao_jantar || '');
           data = {
             ...data,
